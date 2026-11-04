@@ -1,28 +1,27 @@
-# Architecture and Migration
+# Frontend Architecture
 
-## Status
+## Ownership
 
-This document is a proposal, not a description of shipped functionality. The current implementation remains in Fileloom. No package names, package exports, registry API, or installation command are promised by this repository yet.
+`packages/desktop-movies`, `desktop-music`, `desktop-photos`, and `desktop-files` are independently mountable plugins. `shared/` contains source compiled privately into each browser factory: the authenticated read API, validation, locale copy, navigation, and previews. No runtime shared-state service or global active-desktop singleton is created.
 
-## Proposed Package Organization
+Each package exports an inert ESM Host entry and a `./client` artifact. The browser artifact registers a lazy `window.__ModuleLoader__.load({ id, factory })` factory with the package's exact id. It obtains React from the host module table, not a bundled second React. There are no imports of private DSH feature components or source-build scripts.
 
-`packages/` will contain separately loadable Client plugins for movies, music, photos, and general files. Each plugin will own its source, locale dictionaries, styles, tests, and assets. Shared code will be extracted only after implemented consumers establish a common need; a generic plugin manager or media framework is not required up front.
+`shared/protocol.ts` describes only the locale, effect, and slot operations these plugins consume. It is an adapter for the tested Fileloom version, not a general DSH SDK. The integration overlay resolves each Host entry by path; DSH discovers its nearest package manifest and corresponding Client artifact.
 
-Each plugin will register UI contributions through DSH's existing slots and reversible effects. Unloading a plugin must remove its registrations and stop its own playback, timers, listeners, and pending requests. Client state must belong to the plugin instance rather than a module-level active desktop singleton.
+## Lifecycle
+
+Each desktop owns its locale namespace and two slot registrations. Locale registration runs through `ctx.effect`; slot registration runs through `ctx.slots.inject`. State belongs to the mounted desktop. Effects abort root, list, and text-preview requests; stale completions cannot replace a newer navigation. Switching roots remounts folder state. Leaving a preview pauses media and removes its source.
+
+Plugin disposal removes its registrations and unmounts its UI. `tests/bundles.spec.ts` checks the factory and cleanup adapter; real-profile browser verification is a separate integration check and must not be inferred from that adapter test.
 
 ## Host Responsibilities
 
-The Fileloom Host remains authoritative for data roots, path validation, authenticated content access, durable metadata, file mutation, snapshots, and rollback. Browser views call authenticated Host APIs. A presentation mode must not change the permissions of the same file operation.
+Fileloom Host remains authoritative for roots, path validation, authentication, directory contents, mutations, snapshots, and rollback. These desktops issue only GET requests to `/api/file-manager/roots`, `/list`, and `/content` on the page's own origin. Returned roots and list fields are validated with Zod. Authentication, transport, and invalid-response failures are localized categories, not raw server diagnostics.
 
-Movies need deliberate support for browser-compatible playback, content ranges, posters, metadata, and progress persistence. Music needs metadata and queue/playback decisions. Photos need a thumbnail strategy and date metadata. These dependencies must be designed and tested with the Host before the corresponding controls are presented as working features. The existing generic preview endpoint is not a promise of media streaming or transcoding support.
+Folder filters are presentation logic, not authorization or classification policy. Direct filesystem access, unconfirmed mutations, and a second application launcher are not part of this repository.
 
-## Migration Acceptance
+## Remaining Work
 
-- The existing UI builds without importing source scripts from a sibling DSH checkout.
-- The plugin resolves supported DSH dependencies and is loadable by the actual Fileloom profile.
-- Locale dictionaries, theme tokens, styles, and assets survive loading and disposal.
-- Fileloom consumes a pinned revision or published version; it does not maintain a copied frontend tree.
-- Unit tests, existing UI expectations, and browser verification pass against the real Host.
-- Standalone development does not create another supported production application launcher.
+The Fileloom management plugin is not moved or copied here. It continues to own uploads, organization, trash, rules, and history. A future replacement must build independently, be verified against the actual Host, and remove the old maintained source in the same change that activates the replacement.
 
-The old UI is removed from Fileloom only in the change that activates the verified replacement. Backend APIs, `data_steward_*` tools, persistent file state, and configured data roots are not renamed by this migration.
+Full media support needs separate Host capabilities: Range-aware content access, transcoding decisions, metadata, thumbnails, and progress persistence. Current controls do not promise those capabilities. npm publication and pinned production consumption remain separate release work; the delivered integration uses a built sibling checkout.

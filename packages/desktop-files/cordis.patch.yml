@@ -1,0 +1,3 @@
+- insert:
+    - id: fileloom-files
+      name: '@fileloom/desktop-files'

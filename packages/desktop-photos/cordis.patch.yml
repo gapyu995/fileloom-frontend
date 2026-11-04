@@ -1,0 +1,3 @@
+- insert:
+    - id: fileloom-photos
+      name: '@fileloom/desktop-photos'

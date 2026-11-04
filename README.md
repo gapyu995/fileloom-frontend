@@ -1,35 +1,46 @@
 # Fileloom Frontend
 
-Frontend plugin development for [Fileloom](https://github.com/gapyu995/fileloom), built around DeepSeek Harness (DSH) and Cordis plugins.
+Independent DSH Client plugins for browsing a Fileloom library. Each desktop has its own package, Host entry, browser factory, locale registration, and sidebar/main-panel contributions. File mutations remain in Fileloom's existing management plugin.
 
-## Status
+## Desktops
 
-This public repository currently contains the frontend architecture and migration plan only. It does not yet contain an installable plugin, independent build, or working media desktops. The current file-management UI remains in the Fileloom repository under `packages/file-manager/ui-file-manager/` until standalone build and loading verification are complete. There is no duplicated frontend source here.
-
-## Planned Desktops
-
-| Desktop | Intended interaction |
+| Package | Current behavior |
 |---|---|
-| Movies | Poster library, movie details, playback, and viewing progress |
-| Music | Albums, artists, playback queue, and player controls |
-| Photos | Thumbnail grid, large-image inspection, and date navigation |
-| Files | Folder navigation, list/grid display, search, and document preview |
+| `@fileloom/desktop-movies` | Video-file grid, folders, bounded native preview for MP4/WebM |
+| `@fileloom/desktop-music` | Track list, a folder-scoped queue, native audio controls, previous/next |
+| `@fileloom/desktop-photos` | Image grid, newest-first sorting, large preview, previous/next |
+| `@fileloom/desktop-files` | General file list, folders, local filtering, text/PDF/media preview |
 
-Each desktop is intended to be an independently mounted DSH Client plugin. A shared frontend package will be introduced only for functionality that multiple implemented desktops actually need. Playback and metadata features require matching host APIs; the current backend must not be assumed to provide them.
+All desktops support data-root switching, breadcrumbs, sorting, filtering the current folder, refresh, error recovery, English/Chinese copy, and narrow viewports. They are read-only and do not scan, classify, upload, move, or delete files.
 
-## Ownership
+## Build and Test
 
-- Fileloom Host owns filesystem access, validation, permissions, indexing, classification, snapshots, and reversible operations.
-- This repository will own frontend navigation, rendering, client interaction, and media-specific presentation.
-- DSH owns application launch, plugin loading, authentication, locale services, theme tokens, and slots.
+Requires Node.js 22.19+ and pnpm 11.28.5. Dependencies resolve independently from npm; no DSH source code or internal build script is imported.
 
-No frontend package may access local files directly or bypass host confirmation and path checks. Production launch stays under a DSH profile rather than a new application executable.
+```sh
+pnpm install --frozen-lockfile
+pnpm check
+```
 
-## Next Steps
+`check` type-checks, builds all four plugins, and runs unit, UI, built-factory, and disposal-adapter tests. Browser code requests only the host's shared React and JSX runtime. Lucide icons and Zod validation are bundled privately. No application server is implemented here; DSH profiles remain the production launcher.
 
-1. Verify the existing UI against independently resolved DSH dependencies and build tooling.
-2. Move that UI here without keeping a second maintained copy in Fileloom.
-3. Connect Fileloom to a pinned plugin version through its bundle configuration.
-4. Implement and test each media desktop with its required Host APIs.
+## Use in Fileloom
 
-See [Architecture and Migration](docs/architecture.md).
+The current integration is a source-checkout overlay, not an npm release. Keep this repository beside the `fileloom` checkout, build the plugins, then run this command from Fileloom:
+
+```sh
+pnpm dsh web --patch apps/web/tests/pin-browse-picker.overlay.yml --patch apps/cli/config/examples/fileloom-frontend/desktop.cordis.patch.yml --no-open
+```
+
+The picker overlay selects DSH's in-page directory picker. The desktop overlay mounts all four built Host entries; their manifests advertise the matching browser factories. Remove individual desktop rows to opt out. No DSH core or shared client package needs modification.
+
+Compatibility is currently verified against the Fileloom development checkout, not every published DSH release. See [architecture](docs/architecture.md) for lifecycle and migration responsibilities.
+
+## Limits
+
+- Fileloom's current content endpoint limits previews to 64 MB and has no Range streaming or transcoding. Large movie playback is not supported.
+- Image tiles lazily load original images within that limit; no thumbnail service is claimed.
+- Movie posters, album/artist metadata, EXIF timelines, recursive media libraries, durable queues, and viewing-progress synchronization are not implemented.
+- A music queue contains visible files in the current folder; leaving the desktop or switching roots stops playback. Unsupported codecs display an unavailable-preview state.
+- General-file browsing complements the management panel; it is not a copied version of the upload/organization/trash UI.
+- The local Client-service type adapter is verified with Fileloom's real Loader; it is not a replacement SDK or cross-version compatibility guarantee.

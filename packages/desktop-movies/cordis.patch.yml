@@ -1,0 +1,3 @@
+- insert:
+    - id: fileloom-movies
+      name: '@fileloom/desktop-movies'
