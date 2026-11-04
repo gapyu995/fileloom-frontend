@@ -1,13 +1,17 @@
 /** Folder-scoped desktops. Components receive actions and copy, never a Cordis context. */
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ChevronRight, Film, Folder, Image, Music2, FileText, Play, RotateCw, Search, SkipBack, SkipForward, X } from 'lucide-react'
-import { FileApiError, PREVIEW_LIMIT } from './api.ts'
+import { ArrowLeft, ChevronRight, Film, Folder, Image, Music2, FileText, RotateCw, Search, SkipBack, SkipForward, X } from 'lucide-react'
+import { FileApiError } from './api.ts'
 import type { ApiFailure, Entry, FileApi, Root } from './api.ts'
-import { formatSize, parentPath, previewKind, selectEntries } from './files.ts'
+import { formatSize, parentPath, selectEntries } from './files.ts'
 import type { Translate } from './locales.ts'
 import type { DesktopKind } from './protocol.ts'
 import { Preview } from './Preview.tsx'
+import { Movies } from './views/Movies.tsx'
+import { Photos } from './views/Photos.tsx'
+import { Music } from './views/Music.tsx'
 import styles from './styles.css'
+import mediaStyles from './media.css'
 
 export interface DesktopProps extends FileApi {
   kind: DesktopKind
@@ -46,6 +50,7 @@ export function Desktop({ kind, t, roots: loadRoots, list, contentUrl }: Desktop
 
   return <section className="flml-desktop" aria-label={t(kind)} data-fileloom-desktop={kind}>
     <style>{styles}</style>
+    <style>{mediaStyles}</style>
     <header className="flml-heading">
       <div className="flml-title"><DesktopIcon kind={kind} /><h1>{t(kind)}</h1><span className="flml-product">Fileloom</span></div>
       {libraries !== null && libraries.length > 0 && <label className="flml-root">{t('root')}
@@ -79,7 +84,6 @@ function FolderBrowser({ kind, t, rootId, rootName, list, contentUrl }: BrowserP
   const [error, setError] = useState<ApiFailure | null>(null)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<string | null>(null)
-  const [autoPlay, setAutoPlay] = useState(false)
   const selectedButton = useRef<HTMLButtonElement | null>(null)
   const locale = t('languageTag')
   const visible = selectEntries(entries ?? [], kind, query, sort, locale)
@@ -106,14 +110,13 @@ function FolderBrowser({ kind, t, rootId, rootName, list, contentUrl }: BrowserP
     setPath(next)
     setQuery('')
     setSelected(null)
-    setAutoPlay(false)
     setEntries(null)
   }
 
   function moveSelection(offset: number) {
     if (index < 0) return
     const next = queue[index + offset]
-    if (next !== undefined) { setSelected(next.path); setAutoPlay(kind === 'music') }
+    if (next !== undefined) setSelected(next.path)
   }
 
   const date = (time: number): string => new Date(time).toLocaleDateString(locale)
@@ -134,26 +137,27 @@ function FolderBrowser({ kind, t, rootId, rootName, list, contentUrl }: BrowserP
     </div>
     <div className="flml-summary" role="status">{!loading && entries !== null ? `${count} ${t('items')}` : '\u00a0'}</div>
     {error !== null && <Failure error={error} retry={() => setRevision(value => value + 1)} t={t} />}
-    {loading ? <div className="flml-state"><span className="flml-spinner" role="status" aria-label={t('loading')} /></div> : entries !== null && <div className={`flml-content${selectedEntry !== undefined ? ' flml-with-preview' : ''}`}>
+    {entries === null ? loading && <div className="flml-state"><span className="flml-spinner" role="status" aria-label={t('loading')} /></div>
+      : kind === 'movies' ? <Movies key={path} rootId={rootId} path={path} entries={visible} allEntries={entries} contentUrl={contentUrl} navigate={navigate} t={t} />
+        : kind === 'photos' ? <Photos key={path} rootId={rootId} path={path} entries={visible} allEntries={entries} contentUrl={contentUrl} navigate={navigate} t={t} />
+          : kind === 'music' ? <Music key={path} rootId={rootId} path={path} entries={visible} allEntries={entries} contentUrl={contentUrl} navigate={navigate} t={t} />
+            : <div className={`flml-content${selectedEntry !== undefined ? ' flml-with-preview' : ''}`}>
       <div className="flml-results">
-        {visible.length === 0 ? <p className="flml-state">{t('empty')}</p> : <ul className={kind === 'music' || kind === 'files' ? 'flml-list' : 'flml-grid'} aria-label={t(kind)}>
+        {visible.length === 0 ? <p className="flml-state">{t('empty')}</p> : <ul className="flml-list" aria-label={t(kind)}>
           {visible.map(entry => {
             const isFolder = entry.kind === 'directory'
             const TileIcon = isFolder ? Folder : icons[kind]
-            const image = !isFolder && kind === 'photos' && entry.size <= PREVIEW_LIMIT && previewKind(entry.ext) === 'image'
             return <li key={entry.path}>
-              <button type="button" aria-label={`${t(isFolder ? 'open' : kind === 'music' ? 'play' : 'preview')}: ${entry.name}`} aria-pressed={!isFolder ? entry.path === selected : undefined}
+              <button type="button" aria-label={`${t(isFolder ? 'open' : 'preview')}: ${entry.name}`} aria-pressed={!isFolder ? entry.path === selected : undefined}
                 className={`flml-item flml-${kind}${entry.path === selected ? ' flml-selected' : ''}`}
                 onClick={event => {
                   if (isFolder) { navigate(entry.path); return }
                   selectedButton.current = event.currentTarget
                   setSelected(entry.path)
-                  setAutoPlay(kind === 'music')
                 }}>
-                <span className="flml-artwork">{image ? <Photo url={contentUrl(rootId, entry.path)} name={entry.name} /> : <TileIcon size={kind === 'music' || kind === 'files' ? 20 : 38} strokeWidth={1.5} aria-hidden="true" />}</span>
-                <span className="flml-item-copy"><span className="flml-filename">{entry.name}</span><span className="flml-muted">{isFolder ? t('folder') : kind === 'photos' ? date(entry.mtimeMs) : `${entry.ext.replace(/^\./, '').toUpperCase()} · ${formatSize(entry.size)}`}</span></span>
-                {kind === 'music' && !isFolder && <Play size={16} aria-hidden="true" />}
-                {kind === 'files' && <span className="flml-file-date">{date(entry.mtimeMs)}</span>}
+                <span className="flml-artwork"><TileIcon size={20} strokeWidth={1.5} aria-hidden="true" /></span>
+                <span className="flml-item-copy"><span className="flml-filename">{entry.name}</span><span className="flml-muted">{isFolder ? t('folder') : `${entry.ext.replace(/^\./, '').toUpperCase()} · ${formatSize(entry.size)}`}</span></span>
+                <span className="flml-file-date">{date(entry.mtimeMs)}</span>
               </button>
             </li>
           })}
@@ -161,7 +165,7 @@ function FolderBrowser({ kind, t, rootId, rootName, list, contentUrl }: BrowserP
       </div>
       {selectedEntry !== undefined && <aside className="flml-detail" aria-label={t('preview')}>
         <div className="flml-detail-heading"><h2>{selectedEntry.name}</h2><button type="button" className="flml-icon" aria-label={t('close')} title={t('close')} onClick={() => { setSelected(null); selectedButton.current?.focus() }}><X size={18} /></button></div>
-        <Preview key={`${rootId}/${selectedEntry.path}/${selectedEntry.mtimeMs}/${selectedEntry.size}`} entry={selectedEntry} url={contentUrl(rootId, selectedEntry.path)} t={t} autoPlay={autoPlay} onEnded={() => moveSelection(1)} />
+        <Preview key={`${rootId}/${selectedEntry.path}/${selectedEntry.mtimeMs}/${selectedEntry.size}`} entry={selectedEntry} url={contentUrl(rootId, selectedEntry.path)} t={t} autoPlay={false} onEnded={() => moveSelection(1)} />
         <div className="flml-preview-actions">
           <button type="button" className="flml-icon" aria-label={t('previous')} title={t('previous')} disabled={index <= 0} onClick={() => moveSelection(-1)}><SkipBack size={17} /></button>
           <button type="button" className="flml-icon" aria-label={t('next')} title={t('next')} disabled={index < 0 || index >= queue.length - 1} onClick={() => moveSelection(1)}><SkipForward size={17} /></button>
@@ -170,9 +174,4 @@ function FolderBrowser({ kind, t, rootId, rootName, list, contentUrl }: BrowserP
       </aside>}
     </div>}
   </>
-}
-
-function Photo({ url, name }: { url: string; name: string }) {
-  const [failed, setFailed] = useState(false)
-  return failed ? <Image size={32} aria-hidden="true" /> : <img src={url} alt={name} loading="lazy" onError={() => setFailed(true)} />
 }

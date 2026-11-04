@@ -22,13 +22,15 @@ describe('built Client factories', () => {
     const requested: string[] = []
     const require = createRequire(import.meta.url)
     const values = registration.factory(Object.assign((name: string) => { requested.push(name); return require(name) }, require))
-    expect(values.inject).toEqual(['slots', 'locale'])
+    expect(values.inject).toEqual(['slots', 'locale', 'layout', 'theme'])
     expect(requested.every(name => name === 'react' || name === 'react/jsx-runtime')).toBe(true)
     const entries = new Set<string>()
     const namespaces = new Set<string>()
     const cleanup: Array<() => void> = []
     const ctx: PluginContext = {
       effect: callback => { cleanup.push(callback()) },
+      layout: { panelInfo: { getSnapshot: () => ({ activePanelId: null }), subscribe: () => () => {} } },
+      theme: { overrideTokens: () => () => {} },
       locale: {
         register: namespace => { namespaces.add(namespace); return () => { namespaces.delete(namespace) } },
         bind: () => key => key,

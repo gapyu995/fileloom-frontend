@@ -12,14 +12,19 @@ export interface PreviewProps {
   t: Translate
   autoPlay: boolean
   onEnded: () => void
+  initialPosition?: number
+  onPosition?: (position: number, duration: number) => void
 }
 
-export function Preview({ entry, url, t, autoPlay, onEnded }: PreviewProps) {
+export function Preview({ entry, url, t, autoPlay, onEnded, initialPosition = 0, onPosition }: PreviewProps) {
   const kind = previewKind(entry.ext)
   const [text, setText] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const [retry, setRetry] = useState(0)
   const media = useRef<HTMLMediaElement | null>(null)
+  const lastPosition = useRef(initialPosition)
+  const reportPosition = useRef(onPosition)
+  reportPosition.current = onPosition
   const overLimit = entry.size > PREVIEW_LIMIT
 
   useEffect(() => {
@@ -48,6 +53,7 @@ export function Preview({ entry, url, t, autoPlay, onEnded }: PreviewProps) {
     const element = media.current
     return () => {
       if (element !== null) {
+        reportPosition.current?.(element.currentTime, element.duration)
         element.pause()
         element.removeAttribute('src')
         element.load()
@@ -61,7 +67,11 @@ export function Preview({ entry, url, t, autoPlay, onEnded }: PreviewProps) {
     <button type="button" onClick={() => { setFailed(false); setRetry(value => value + 1) }}><RotateCw size={16} />{t('retry')}</button>
   </div>
   if (kind === 'image') return <img key={retry} className="flml-full-image" src={url} alt={entry.name} onError={() => setFailed(true)} />
-  if (kind === 'video') return <video key={retry} ref={element => { media.current = element }} src={url} controls preload="metadata" onError={() => setFailed(true)} />
+  if (kind === 'video') return <video key={retry} ref={element => { media.current = element }} src={url} controls autoPlay={autoPlay} preload="metadata" onError={() => setFailed(true)}
+    onLoadedMetadata={event => { if (initialPosition > 0 && Number.isFinite(event.currentTarget.duration)) event.currentTarget.currentTime = Math.min(initialPosition, Math.max(0, event.currentTarget.duration - 1)) }}
+    onTimeUpdate={event => { const element = event.currentTarget; if (Math.abs(element.currentTime - lastPosition.current) >= 5) { lastPosition.current = element.currentTime; reportPosition.current?.(element.currentTime, element.duration) } }}
+    onPause={event => reportPosition.current?.(event.currentTarget.currentTime, event.currentTarget.duration)}
+    onEnded={event => { reportPosition.current?.(event.currentTarget.duration, event.currentTarget.duration); onEnded() }} />
   if (kind === 'audio') return <audio key={retry} ref={element => { media.current = element }} src={url} controls autoPlay={autoPlay} preload="metadata" onEnded={onEnded} onError={() => setFailed(true)} />
   if (kind === 'pdf') return <iframe key={retry} title={entry.name} src={url} />
   if (text === null) return <span className="flml-spinner" role="status" aria-label={t('loading')} />

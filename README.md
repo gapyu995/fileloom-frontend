@@ -6,12 +6,16 @@ Independent DSH Client plugins for browsing a Fileloom library. Each desktop has
 
 | Package | Current behavior |
 |---|---|
-| `@fileloom/desktop-movies` | Video-file grid, folders, bounded native preview for MP4/WebM |
-| `@fileloom/desktop-music` | Track list, a folder-scoped queue, native audio controls, previous/next |
-| `@fileloom/desktop-photos` | Image grid, newest-first sorting, large preview, previous/next |
+| `@fileloom/desktop-movies` | Cinema-style featured video, horizontal shelves, watchlist, bounded MP4/WebM playback, browser-local resume |
+| `@fileloom/desktop-music` | Folder library, editable queue, sticky player, seeking, volume, shuffle, repeat, previous/next |
+| `@fileloom/desktop-photos` | All/month/year collections, adjustable grid, bulk favorites, keyboard lightbox, filmstrip and zoom |
 | `@fileloom/desktop-files` | General file list, folders, local filtering, text/PDF/media preview |
 
 All desktops support data-root switching, breadcrumbs, sorting, filtering the current folder, refresh, error recovery, English/Chinese copy, and narrow viewports. They are read-only and do not scan, classify, upload, move, or delete files.
+
+The sidebar follows the selected desktop through a temporary DSH theme layer. Video uses a dark cinema palette, photos/files use neutral colors, and music uses a muted green tint. Switching away or unloading a plugin restores the underlying theme without changing saved appearance settings. Photos, music, and files retain the user's system light/dark choice.
+
+Video artwork comes only from a real same-stem image in the current folder, such as `Trip.mp4` with `Trip.jpg`. Music uses a folder's `cover.jpg`/`.jpeg`/`.png`/`.webp` or a same-stem track image. Missing artwork uses an icon rather than an invented poster. Titles come from filenames; displayed dates are file modification dates, not release or capture metadata.
 
 ## Build and Test
 
@@ -40,7 +44,9 @@ Compatibility is currently verified against the Fileloom development checkout, n
 
 - Fileloom's current content endpoint limits previews to 64 MB and has no Range streaming or transcoding. Large movie playback is not supported.
 - Image tiles lazily load original images within that limit; no thumbnail service is claimed.
-- Movie posters, album/artist metadata, EXIF timelines, recursive media libraries, durable queues, and viewing-progress synchronization are not implemented.
-- A music queue contains visible files in the current folder; leaving the desktop or switching roots stops playback. Unsupported codecs display an unavailable-preview state.
+- Online poster lookup, album/artist metadata, EXIF capture timelines, recursive media libraries, and server-synchronized preferences are not implemented.
+- Watchlists, favorites, and video resume positions are local to this browser and data root. Replaced files do not reuse old resume positions. Storage failures leave choices in memory and show a warning; clearing site storage removes these preferences.
+- Music queues are in memory. Filtering does not replace an active queue, but starting a new track list does. Leaving the desktop, folder, or data root stops playback and clears it. Queues are not durable or synchronized.
+- The playback limit remains 64 MB. Unsupported codecs display an unavailable-preview state. Repeat and shuffle operate on the explicit queue, not on hidden or recursively discovered files.
 - General-file browsing complements the management panel; it is not a copied version of the upload/organization/trash UI.
 - The local Client-service type adapter is verified with Fileloom's real Loader; it is not a replacement SDK or cross-version compatibility guarantee.

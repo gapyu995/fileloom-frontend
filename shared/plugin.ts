@@ -3,6 +3,7 @@ import { createFileApi } from './api.ts'
 import { Desktop, DesktopIcon } from './Desktop.tsx'
 import { en, zh } from './locales.ts'
 import type { DesktopKind, PluginContext } from './protocol.ts'
+import { followDesktopTheme } from './navigation-theme.ts'
 
 export function mountDesktop(ctx: PluginContext, kind: DesktopKind): void {
   const namespace = `fileloomDesktop${kind}`
@@ -12,4 +13,5 @@ export function mountDesktop(ctx: PluginContext, kind: DesktopKind): void {
   const api = createFileApi(window.location.origin)
   ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: panel, locale: namespace, inject: () => ({ kind, ...api }) }, Desktop))
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: panel, order: 10, label: () => t(kind), inject: () => ({ kind }) }, DesktopIcon))
+  followDesktopTheme(ctx, kind)
 }

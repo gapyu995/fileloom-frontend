@@ -4,6 +4,15 @@ import type { CopyKey, Dictionary } from './locales.ts'
 
 export interface PluginContext {
   effect(callback: () => () => void, label?: string): unknown
+  layout: {
+    panelInfo: {
+      getSnapshot(): { readonly activePanelId: string | null }
+      subscribe(listener: () => void): () => void
+    }
+  }
+  theme: {
+    overrideTokens(source: string, tokens: Record<string, { light: string; dark: string }>): () => void
+  }
   locale: {
     register(namespace: string, dictionaries: { en: Dictionary; zh: Dictionary }): () => void
     bind(namespace: string): (key: CopyKey) => string
